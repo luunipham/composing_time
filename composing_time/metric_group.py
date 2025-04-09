@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from scamp import TempoEnvelope
 import json
-from abjad_utils import create_blank_lilypond_file, create_blank_score
+from .abjad_utils import create_blank_lilypond_file, create_blank_score
 from itertools import accumulate
 
 

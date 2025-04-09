@@ -1,4 +1,4 @@
-from metric_group import MetricGroup
+from composing_time.metric_group import MetricGroup
 import abjad
 
 mg = MetricGroup.load_from_json("bar_config.json")

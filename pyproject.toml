@@ -13,6 +13,7 @@ license = { file = "LICENSE" }
 readme = "README.md"
 requires-python = ">=3.10"
 
-[project.dependencies]
-abjad = ">=3.17"
-scamp = ">=0.9.2"
+dependencies = [
+    "abjad >=3.17",
+    "scamp >=0.9.2",
+]
