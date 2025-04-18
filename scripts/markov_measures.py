@@ -41,7 +41,7 @@ def build_measure_list(
     :param transition_dict: A dictionary mapping measure durations to possible next durations.
     :param start_measure_dur: The duration of the first measure in 16th notes.
     :param total_dur_in_seconds: The total duration of the generated measures in seconds.
-    :param tempo: The tempo in beats per minute, where a beat is a quarter note.
+    :param tempo_envelope: The tempo in beats per minute, where a beat is a quarter note.
     :return: A list of measure durations in 16th notes.
     """
     if not isinstance(tempo_envelope, TempoEnvelope):
@@ -54,7 +54,7 @@ def build_measure_list(
     while t < total_dur_in_seconds:
         if measure_durs_list:
             last_measure_dur = measure_durs_list[-1]
-            options_for_next_measure_dur = measure_dur_transitions[last_measure_dur]
+            options_for_next_measure_dur = transition_dict[last_measure_dur]
             next_measure_dur = random.choice(options_for_next_measure_dur)
         else:
             next_measure_dur = start_measure_dur

@@ -76,20 +76,19 @@ class MetricGroup(ABC):
         score = create_blank_score(
             bar_lengths_beats,
             bar_lengths_times,
+            tempo_env
         )
 
         return create_blank_lilypond_file(score)
-
-
 
 
 class SimpleMetricGroup(MetricGroup):
     def __init__(self, bar_lengths: list[int], tempo_envelope: TempoEnvelope):
         self.bar_lengths = bar_lengths
         total_bar_length = self.total_beat_duration()
-        self.tempo_envelope = tempo_envelope.\
-                              extend_to(total_bar_length).\
-                              truncate_at(total_bar_length)
+        self.tempo_envelope = (tempo_envelope.
+                               extend_to(total_bar_length).
+                               truncate_at(total_bar_length))
 
     def get_bar_lengths(self) -> list[int]:
         return self.bar_lengths
@@ -155,7 +154,6 @@ if __name__ == '__main__':
     print("Simple3 Bar Lengths:", simple3.get_bar_lengths())
     print("Simple3 Tempo Envelope:", simple3.get_tempo_envelope())
     simple3.get_tempo_envelope().show_plot()
-
 
     print("Composite2 Bar Lengths:", composite2.get_bar_lengths())
     print("Composite2 Tempo Envelope:", composite2.get_tempo_envelope())
