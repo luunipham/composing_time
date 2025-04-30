@@ -25,9 +25,23 @@ respace_text = r"""
 \override Score.SpacingSpanner.spacing-increment = #{spacing}
 """
 
+# the left tweaks don't start with a "-" because this is inserted by abjad
+tempo_spanner_tweaks_left = r"""\tweak bound-details.left.text \markup \small {{\note {{ {note_type} }} #1 "= {tempo}"}} 
+- \tweak bound-details.left-broken.text ##f"""
 
-# TODO: make the bars empty and with proportional notation
-# TODO: add breaks after a certain number of beats
+tempo_spanner_tweaks_left_parenthesized = r"""\tweak bound-details.left.text \markup \small {{"(" \note {{ {note_type} }} #1 "= {tempo})"}} 
+- \tweak bound-details.left-broken.text ##f"""
+
+# this is just concatenated to the left tweak, so does start with a "-"
+tempo_spanner_tweaks_right_parenthesized = r"""- \tweak bound-details.right.text \markup \small {{"(" \note {{ {note_type} }} #1 "= {tempo})"}} 
+- \tweak bound-details.right-broken.text ##f"""
+
+tempo_spanner_padding_tweak = r"""- \tweak bound-details.right.padding #{}"""
+
+tempo_markup = r"""\markup \small {{\note {{ {note_type} }} #1 "= {tempo}"}}"""
+
+parenthesized_tempo_markup = r"""\markup \small {{ "(" \note {{ {note_type} }} #1 "= {tempo})"}}"""
+
 
 def create_blank_score(measure_durs: Sequence[int], measure_times: Sequence[float],
                        tempo_envelope: TempoEnvelope) -> abjad.Score:
@@ -77,6 +91,8 @@ def create_blank_score(measure_durs: Sequence[int], measure_times: Sequence[floa
         "Time_signature_engraver",  # Removes time signature
         "Bar_line_engraver"  # Removes bar lines
     ])
+    abjad.override(tempo_staff).TextSpanner.Y_offset = -4
+    abjad.override(tempo_staff).TextScript.Y_offset = -4
 
     score.append(tempo_staff)
     score.append(staff)
@@ -119,75 +135,57 @@ def get_abjad_tempo_voice(tempo_envelope: TempoEnvelope, parenthesized_end_offse
     annotations = []
 
     last_tempo = None
+    last_segment_was_constant_tempo = False
 
     for i in range(0, len(annotation_key_points), 2):
         start_kp, end_kp = annotation_key_points[i: i + 2]
         next_start_tempo = annotation_key_points[i + 2][1] if i + 2 < len(annotation_key_points) else None
         start_beat, start_tempo = start_kp
         end_beat, end_tempo = end_kp
+
         if start_tempo == end_tempo:  # constant segment
-            if start_tempo != last_tempo:
+            if start_tempo != last_tempo or not last_segment_was_constant_tempo:
                 annotations.append((
                     start_beat,
                     None,
-                    abjad.MetronomeMark(
-                        abjad.Duration(1 / 8),
-                        round(start_tempo)
+                    abjad.Markup(
+                        tempo_markup.format(note_type=8, tempo=round(start_tempo))
                     )
                 ))
+            last_segment_was_constant_tempo = True
         elif next_start_tempo is None or end_tempo != next_start_tempo:
             # not a constant segment, since the first if statement failed, and we need to note the end tempo, since it's
             # not going to be given at the start of the next segments (either because of subito change or end of score)
-            annotations.append((
-                start_beat,
-                None,
-                abjad.MetronomeMark(
-                    abjad.Duration(1 / 8),
-                    round(start_tempo),
-                    # parenthesize if same as ending tempo of the last segment
-                    textual_indication="\"\"" if start_tempo == last_tempo else None
-                )
-            ))
+            tweaks = (tempo_spanner_tweaks_left_parenthesized
+                      if start_tempo == last_tempo else tempo_spanner_tweaks_left).format(note_type=8,
+                                                                                          tempo=round(start_tempo))
+            tweaks += "\n" + tempo_spanner_tweaks_right_parenthesized.format(note_type=8, tempo=round(end_tempo))
+            tweaks += "\n" + tempo_spanner_padding_tweak.format(1)
             right_before_end_beat = end_beat - parenthesized_end_offset
             annotations.append((
                 start_beat,
                 right_before_end_beat,
                 abjad.StartTextSpan(
-                    style=r"\abjad-dashed-line-with-arrow",
+                    style=tweaks
                 )
             ))
-
-            annotations.append((
-                right_before_end_beat,
-                None,
-                abjad.MetronomeMark(
-                    abjad.Duration(1 / 8),
-                    round(end_tempo),
-                    # parenthesize if same as ending tempo of the last segment
-                    textual_indication="\"\""
-                )
-            ))
+            last_segment_was_constant_tempo = False
         else:
             # not a constant segment, but the end tempo matches the beginning of the next segment, so just add a
             # metronome mark and and arrow
-            annotations.append((
-                start_beat,
-                None,
-                abjad.MetronomeMark(
-                    abjad.Duration(1 / 8),
-                    round(start_tempo),
-                    # parenthesize if same as ending tempo of the last segment
-                    textual_indication="\"\"" if start_tempo == last_tempo else None
-                )
-            ))
+            tweaks = (tempo_spanner_tweaks_left_parenthesized
+                      if start_tempo == last_tempo else tempo_spanner_tweaks_left).format(note_type=8,
+                                                                                          tempo=round(start_tempo))
+            tweaks += "\n" + tempo_spanner_padding_tweak.format(1)
+
             annotations.append((
                 start_beat,
                 end_beat,
                 abjad.StartTextSpan(
-                    #left_text=abjad.Markup(rf'\markup {{ \concat {{ \smaller \general-align #Y #DOWN \note {{8}} #1  = 65 }} }}'),
-                    style=r"\abjad-dashed-line-with-arrow",
+                    style=tweaks
                 )
             ))
+            last_segment_was_constant_tempo = False
         last_tempo = end_tempo
 
     tempo_voice, beats_to_skip_objects = create_tempo_skip_voice(annotations)
@@ -240,7 +238,6 @@ def create_tempo_skip_voice(
 
     # Sort the time points
     time_points = sorted(time_points)
-    print(time_points)
 
     if not time_points:
         return abjad.Voice([], name=voice_name), {}
